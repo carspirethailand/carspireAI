@@ -1,173 +1,115 @@
-import express from 'express';
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import OpenAI from 'openai';
+import express from "express";
+import cors from "cors";
+import fs from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
+import OpenAI from "openai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = process.env.PORT || 5174;
-const DATA_DIR = path.join(__dirname, 'data');
-const KNOW_PATH = path.join(DATA_DIR, 'knowledge.json');
-const EMBED_PATH = path.join(DATA_DIR, 'embeddings.json');
-const SEED_PATH = path.join(__dirname, 'seed', 'cars_seed.md');
-
 const app = express();
-app.use(express.json({ limit: '3mb' }));
-app.use(express.static('dist')); // serve built frontend
+const PORT = process.env.PORT || 5174;
 
-// --- Utils
-async function ensureDataFiles() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  // init knowledge
-  try { await fs.access(KNOW_PATH); } catch {
-    await fs.writeFile(KNOW_PATH, JSON.stringify([], null, 2));
-  }
-  try { await fs.access(EMBED_PATH); } catch {
-    await fs.writeFile(EMBED_PATH, JSON.stringify([], null, 2));
-  }
+app.use(cors());
+app.use(express.json({ limit: "3mb" }));
+
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const CHAT_MODEL = "gpt-4o-mini";
+const EMBED_MODEL = "text-embedding-3-small";
+
+const KNOW = path.join(__dirname, "knowledge.json");
+const EMBS = path.join(__dirname, "embeddings.json");
+
+async function ensureFiles() {
+  try { await fs.access(KNOW); } catch { await fs.writeFile(KNOW, "[]"); }
+  try { await fs.access(EMBS); } catch { await fs.writeFile(EMBS, "[]"); }
 }
-function chunkText(text, maxChars = 1000) {
-  const lines = text.split(/\n+/);
-  const chunks = [];
-  let buf = '';
-  for (const line of lines) {
-    if ((buf + '\n' + line).length > maxChars) {
-      if (buf.trim()) chunks.push(buf.trim());
-      buf = line;
-    } else {
-      buf = buf ? buf + '\n' + line : line;
-    }
+
+function chunk(text, max = 900) {
+  const lines = text.split(/\n+/), out = []; let buf = "";
+  for (const L of lines) {
+    if ((buf + "\n" + L).length > max) {
+      if (buf.trim()) out.push(buf.trim());
+      buf = L;
+    } else buf = buf ? buf + "\n" + L : L;
   }
-  if (buf.trim()) chunks.push(buf.trim());
-  return chunks;
+  if (buf.trim()) out.push(buf.trim());
+  return out;
 }
-function cosineSim(a, b) {
+
+function cosine(a, b) {
   let dot = 0, na = 0, nb = 0;
   for (let i = 0; i < a.length; i++) {
-    dot += a[i]*b[i]; na += a[i]*a[i]; nb += b[i]*b[i];
+    dot += a[i]*b[i];
+    na += a[i]*a[i];
+    nb += b[i]*b[i];
   }
   return dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-8);
 }
 
-// --- OpenAI
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const CHAT_MODEL = 'gpt-4o-mini';
-const EMBED_MODEL = 'text-embedding-3-small';
+app.get("/api_health", (_req, res) => res.json({ ok: true }));
 
-// --- Seed once on first run
-async function seedIfEmpty() {
-  const know = JSON.parse(await fs.readFile(KNOW_PATH, 'utf8'));
-  if (know.length) return;
+app.post("/api_learn", async (req, res) => {
   try {
-    const seed = await fs.readFile(SEED_PATH, 'utf8');
-    const chunks = chunkText(seed, 900);
-    const emb = await client.embeddings.create({
-      model: EMBED_MODEL,
-      input: chunks
-    });
-    const vectors = emb.data.map(e => e.embedding);
-    await fs.writeFile(KNOW_PATH, JSON.stringify(chunks, null, 2));
-    await fs.writeFile(EMBED_PATH, JSON.stringify(vectors, null, 2));
-    console.log(`Seeded ${chunks.length} chunks from seed/cars_seed.md`);
-  } catch (e) {
-    console.warn('Seed error:', e.message);
-  }
-}
+    const text = (req.body?.text || "").trim();
+    if (text.length < 10)
+      return res.status(400).json({ error: "Provide text >= 10 chars" });
 
-// --- API: learn (add text, chunk & embed)
-app.post('/api/learn', async (req, res) => {
-  try {
-    const { text } = req.body || {};
-    if (!text || text.trim().length < 10) {
-      return res.status(400).json({ error: 'Provide some car text (>= 10 chars)' });
-    }
-    const chunks = chunkText(text, 900);
-    const emb = await client.embeddings.create({
-      model: EMBED_MODEL,
-      input: chunks
-    });
-    const vectors = emb.data.map(e => e.embedding);
+    const parts = chunk(text);
+    const emb = await client.embeddings.create({ model: EMBED_MODEL, input: parts });
+    const vecs = emb.data.map(d => d.embedding);
 
-    const know = JSON.parse(await fs.readFile(KNOW_PATH, 'utf8'));
-    const embs = JSON.parse(await fs.readFile(EMBED_PATH, 'utf8'));
+    const know = JSON.parse(await fs.readFile(KNOW, "utf8"));
+    const embs = JSON.parse(await fs.readFile(EMBS, "utf8"));
+    know.push(...parts);
+    embs.push(...vecs);
 
-    know.push(...chunks);
-    embs.push(...vectors);
-
-    await fs.writeFile(KNOW_PATH, JSON.stringify(know, null, 2));
-    await fs.writeFile(EMBED_PATH, JSON.stringify(embs, null, 2));
-
-    res.json({ added: chunks.length });
+    await fs.writeFile(KNOW, JSON.stringify(know, null, 2));
+    await fs.writeFile(EMBS, JSON.stringify(embs, null, 2));
+    res.json({ added: parts.length });
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }
 });
 
-// --- API: chat (retrieve + answer)
-app.post('/api/chat', async (req, res) => {
+app.post("/api_chat", async (req, res) => {
   try {
-    const { messages, topK = 5 } = req.body || {};
-    if (!Array.isArray(messages)) {
-      return res.status(400).json({ error: 'messages array required' });
-    }
+    const messages = req.body?.messages;
+    if (!Array.isArray(messages))
+      return res.status(400).json({ error: "messages array required" });
 
-    // retrieval
-    const know = JSON.parse(await fs.readFile(KNOW_PATH, 'utf8'));
-    const embs = JSON.parse(await fs.readFile(EMBED_PATH, 'utf8'));
+    const know = JSON.parse(await fs.readFile(KNOW, "utf8"));
+    const embs = JSON.parse(await fs.readFile(EMBS, "utf8"));
+    let context = [];
 
-    let contextBlocks = [];
     if (know.length && messages.length) {
-      const userText = messages[messages.length - 1].content || '';
-      const qEmbed = await client.embeddings.create({
-        model: EMBED_MODEL,
-        input: userText
-      });
-      const q = qEmbed.data[0].embedding;
-      const scored = embs.map((v, idx) => ({ idx, score: cosineSim(v, q) }))
-                         .sort((a,b) => b.score - a.score)
-                         .slice(0, Math.min(topK, know.length));
-      contextBlocks = scored.map(s => know[s.idx]);
+      const qText = messages[messages.length - 1].content || "";
+      const qEmb = await client.embeddings.create({ model: EMBED_MODEL, input: qText });
+      const q = qEmb.data[0].embedding;
+      context = embs
+        .map((v, i) => ({ i, s: cosine(v, q) }))
+        .sort((a, b) => b.s - a.s)
+        .slice(0, 5)
+        .map(r => know[r.i]);
     }
 
-    const system = {
-      role: 'system',
-      content:
-        "You are Carspire, a friendly, precise car mentor. Explain clearly and briefly for non-experts. " +
-        "Use the provided CONTEXT when relevant. Always emphasize safety and legality. " +
-        "If unsure, say you are unsure and suggest checking the owner's manual or a certified mechanic."
-    };
-
-    const contextMsg = contextBlocks.length
-      ? { role: 'system', content: "CONTEXT:\n" + contextBlocks.join("\n---\n") }
-      : null;
-
-    const finalMessages = contextMsg
-      ? [system, contextMsg, ...messages]
-      : [system, ...messages];
+    const system = { role: "system", content: "You are Carspire, a friendly car mentor who gives accurate automotive advice." };
+    const ctx = context.length ? { role: "system", content: "CONTEXT:\n" + context.join("\n---\n") } : null;
+    const msgs = ctx ? [system, ctx, ...messages] : [system, ...messages];
 
     const r = await client.chat.completions.create({
       model: CHAT_MODEL,
       temperature: 0.5,
-      messages: finalMessages
+      messages: msgs,
     });
-
-    const reply = r.choices?.[0]?.message?.content || "Sorry, I couldn't generate a reply.";
-    res.json({ reply, usedContext: contextBlocks.length });
+    res.json({ reply: r.choices?.[0]?.message?.content || "Sorry, no reply." });
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }
 });
 
-// --- SPA fallback (serve built UI)
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-});
-
-// --- boot
 (async () => {
-  await ensureDataFiles();
-  await seedIfEmpty();
-  app.listen(PORT, () => console.log(`Carspire server on http://localhost:${PORT}`));
+  await ensureFiles();
+  app.listen(PORT, () => console.log(`✅ Carspire API running on http://localhost:${PORT}`));
 })();
