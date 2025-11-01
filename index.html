@@ -1,25 +1,43 @@
-<div class="wrap">
-  <div class="top">
-    <img src="P.png" alt="Logo" class="logo fixed-logo"/>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Carspire</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <div class="fx-root" id="fx-root"></div>
+
+  <div class="wrap">
+    <div class="top">
+      <img src="P.png" alt="Logo" class="logo fixed-logo"/>
+    </div>
+
+    <div class="chat" id="chat"></div>
+
+    <div class="bar">
+      <input id="prompt" placeholder="Ask Carspire anything about cars..."/>
+      <button id="send" class="send">Send</button>
+    </div>
+
+    <div class="chips">
+      <button class="chip" data-q="Turbo vs supercharger?">Turbo vs supercharger?</button>
+      <button class="chip" data-q="EV basics">EV basics</button>
+      <button class="chip" data-q="Car maintenance 101">Car maintenance 101</button>
+      <button id="teach-toggle" class="chip lite">Teach Carspire</button>
+      <span id="used-context" class="chip hidden"></span>
+    </div>
+
+    <div id="teach" class="teach hidden">
+      <textarea id="teach-text" placeholder="Paste car docs/specs/notes here. Carspire will learn them."></textarea>
+      <button id="teach-btn" class="send">Teach</button>
+    </div>
   </div>
 
-  <div class="chat" id="chat"></div>
-
-  <div class="bar">
-    <input id="prompt" placeholder="Ask Carspire anything about cars..."/>
-    <button id="send" class="send">Send</button>
-  </div>
-
-  <div class="chips">
-    <button class="chip" data-q="Turbo vs supercharger?">Turbo vs supercharger?</button>
-    <button class="chip" data-q="EV basics">EV basics</button>
-    <button class="chip" data-q="Car maintenance 101">Car maintenance 101</button>
-    <button id="teach-toggle" class="chip lite">Teach Carspire</button>
-    <span id="used-context" class="chip hidden"></span>
-  </div>
-
-  <div id="teach" class="teach hidden">
-    <textarea id="teach-text" placeholder="Paste car docs/specs/notes here. Carspire will learn them."></textarea>
-    <button id="teach-btn" class="send">Teach</button>
-  </div>
-</div>
+  <script src="app.js"></script>
+</body>
+</html>
