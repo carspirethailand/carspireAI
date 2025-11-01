@@ -1,3 +1,10 @@
+app.use(express.static(__dirname, { index: 'index.html' })); // serve this folder
+
+app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/styles.css', (_req, res) => res.sendFile(path.join(__dirname, 'styles.css')));
+app.get('/app.js', (_req, res) => res.sendFile(path.join(__dirname, 'app.js')));
+
+
 import express from 'express';
 import fs from 'fs/promises';
 import path from 'path';
@@ -171,3 +178,4 @@ app.get('*', (req, res) => {
   await seedIfEmpty();
   app.listen(PORT, () => console.log(`Carspire server on http://localhost:${PORT}`));
 })();
+
