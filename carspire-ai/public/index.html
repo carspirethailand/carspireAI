@@ -1,15 +1,20 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1"/>
-    <title>Carspire</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com"/>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet"/>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <title>Carspire</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <img src="P.png" alt="Logo" class="logo fixed-logo" />
+    <div class="chat" id="chat"></div>
+    <div class="bar">
+      <input id="prompt" placeholder="Ask Carspire anything about cars..." />
+      <button id="send" class="send">Send</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
 </html>
