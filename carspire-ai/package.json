@@ -1,25 +1,14 @@
 {
-  "name": "carspire",
+  "name": "carspire-ai",
   "version": "1.0.0",
-  "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k \"npm:dev:*\"",
-    "dev:web": "vite",
-    "dev:server": "node server.js",
-    "build": "vite build",
+    "dev": "node server.js",
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.19.2",
-    "framer-motion": "^11.0.0",
     "openai": "^4.56.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.0",
-    "concurrently": "^9.0.1",
-    "vite": "^5.4.0"
+    "cors": "^2.8.5"
   }
 }
