@@ -4,7 +4,59 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Carspire – Learnable Car AI</title>
-  <link rel="stylesheet" href="./styles.css" />
+
+  <!-- ✅ Inline styles (no separate CSS file needed) -->
+  <style>
+    :root{
+      --bg:#0f1720;--panel:#121a23;--muted:#6b7b8c;--text:#e8f0f7;
+      --primary:#22c1ff;--primary-glow:0 0 24px rgba(34,193,255,.35);
+      --radius:16px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;
+      color:var(--text);
+      background:var(--bg);
+    }
+    .topbar{
+      display:flex;align-items:center;gap:12px;
+      padding:18px 22px;border-bottom:1px solid #14202a;
+      position:sticky;top:0;background:rgba(15,23,32,.85);
+      backdrop-filter:blur(6px);
+    }
+    .logo{width:44px;height:44px;border-radius:12px;box-shadow:var(--primary-glow)}
+    .brand{font-weight:700;color:#a9cbe0;margin:0}
+    .container{max-width:960px;margin:0 auto;padding:20px}
+    .chat{
+      display:flex;flex-direction:column;gap:10px;
+      background:var(--panel);
+      border:1px solid #1a2732;border-radius:var(--radius);
+      padding:12px;min-height:220px;
+    }
+    .msg{
+      padding:10px 14px;border-radius:14px;max-width:85%;line-height:1.45;
+    }
+    .user{align-self:flex-end;background:#173145;border:1px solid #1f3f58}
+    .bot{align-self:flex-start;background:#101820;border:1px solid #1a2732}
+    .bar{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:12px}
+    #prompt{
+      padding:14px 16px;background:var(--panel);color:var(--text);
+      border:1px solid #1a2732;border-radius:999px;outline:none;
+    }
+    #prompt:focus{
+      border-color:#21475a;box-shadow:0 0 0 3px rgba(34,193,255,.12);
+    }
+    button{
+      padding:12px 20px;border:none;border-radius:999px;
+      cursor:pointer;background:linear-gradient(180deg,#48d6ff,#12b6e8);
+      color:#062433;font-weight:700;box-shadow:var(--primary-glow);
+    }
+    button[disabled]{opacity:.6;cursor:not-allowed;box-shadow:none}
+    .hint{color:var(--muted);font-size:13px;margin-top:8px}
+    footer{margin-top:20px;text-align:center;color:#8aa1b3;font-size:12px}
+  </style>
 </head>
 <body>
   <header class="topbar">
@@ -13,21 +65,19 @@
   </header>
 
   <main class="container">
-    <div id="chat" class="chat" aria-live="polite"></div>
+    <div id="chat" class="chat"></div>
 
     <form id="ask" class="bar" autocomplete="off">
-      <input id="prompt" name="prompt" placeholder="Ask Carspire anything about cars..." />
-      <button id="send" type="submit" class="send">Send</button>
+      <input id="prompt" placeholder="Ask Carspire anything about cars..." />
+      <button id="send" type="submit">Send</button>
     </form>
 
     <p class="hint">
-      Tip: Try “Recommend 0W-20 oil spec for a 2019 Corolla” or “Why are my brakes squealing?”.
+      Try: “Recommend 0W-20 oil spec for Corolla 2019” or “Why are my brakes squealing?”
     </p>
   </main>
 
-  <footer class="foot">
-    <span>© Carspire</span>
-  </footer>
+  <footer>© Carspire</footer>
 
   <script src="./app.js" defer></script>
 </body>
