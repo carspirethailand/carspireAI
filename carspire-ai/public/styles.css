@@ -33,28 +33,39 @@ body{
 .bg-canvas{ position:fixed; inset:0; z-index:0; pointer-events:none }
 
 /* ——— HERO: centered logo with “headlight” ambience ——— */
-.hero{
-  position:relative; z-index:1;
-  min-height:46vh; display:flex; align-items:center; justify-content:center;
-  padding:32px 20px;
+/* smaller centered logo */
+.logo-hero {
+  width:68px;
+  height:68px;
+  border-radius:16px;
+  box-shadow: 0 0 22px rgba(34,193,255,.4);
+  position: relative;
+  z-index: 2;
+  transition: transform .3s ease, box-shadow .3s ease;
+}
+.logo-hero:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 28px rgba(34,193,255,.6);
 }
 
-/* sweeping headlight beams (left & right) */
-.hero::before, .hero::after{
-  content:""; position:absolute; inset:-10% -20%;
+/* smaller, subtler road-glow beneath logo */
+.hero .logo-hero::before {
+  content:"";
+  position:absolute;
+  left:50%;
+  top:100%;
+  width:260px;
+  height:100px;
+  transform:translateX(-50%);
   background:
-    radial-gradient(60% 18% at 20% 70%, rgba(255,255,255,.08), rgba(255,255,255,0) 60%),
-    radial-gradient(60% 18% at 80% 70%, rgba(255,255,255,.08), rgba(255,255,255,0) 60%);
+    radial-gradient(60% 100% at 50% 0%, rgba(0,180,255,.18), rgba(0,180,255,0) 70%),
+    radial-gradient(30% 60% at 30% 0%, rgba(255,255,255,.06), transparent 70%),
+    radial-gradient(30% 60% at 70% 0%, rgba(255,255,255,.06), transparent 70%);
   filter: blur(18px);
-  pointer-events:none; z-index:0;
-}
-.hero::before{
-  animation: sweepLeft 7.5s ease-in-out infinite;
-  opacity:.55;
-}
-.hero::after{
-  animation: sweepRight 8.5s ease-in-out infinite;
-  opacity:.45;
+  z-index:-1;
+  opacity:.75;
+  pointer-events:none;
+  animation: poolPulse 5.5s ease-in-out infinite;
 }
 
 @keyframes sweepLeft{
@@ -147,3 +158,4 @@ footer{ margin-top:24px; text-align:center; color:#8fb4c9; font-size:12px; opaci
   .logo-hero{ width:84px; height:84px }
   .hero .logo-hero::before{ width:280px; height:110px }
 }
+
