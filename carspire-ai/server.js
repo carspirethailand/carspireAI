@@ -1,115 +1,126 @@
-import express from "express";
-import cors from "cors";
-import fs from "fs/promises";
-import path from "path";
-import { fileURLToPath } from "url";
-import OpenAI from "openai";
+// server.js — Carspire backend (ESM)
+// Requirements:
+//   - Node 18+
+//   - package.json: { "type": "module" }
+//   - .env with OPENAI_API_KEY=sk-...
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import OpenAI from 'openai';
 
 const app = express();
-const PORT = process.env.PORT || 5174;
+const port = process.env.PORT || 8080;
 
-app.use(cors());
-app.use(express.json({ limit: "3mb" }));
+// --- security & parsing ---
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false, // keep simple for JSON API
+}));
+app.use(express.json({ limit: '1mb' }));
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const CHAT_MODEL = "gpt-4o-mini";
-const EMBED_MODEL = "text-embedding-3-small";
+// --- CORS: allow your GitHub Pages site + local dev ---
+const allowed = new Set([
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://carspirethailand.github.io',          // org pages
+  'https://carspirethailand.github.io/carspireAI'// repo pages
+]);
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);          // curl/postman
+    try {
+      const u = new URL(origin);
+      const base = `${u.protocol}//${u.host}`;
+      return cb(null, allowed.has(base));
+    } catch {
+      return cb(null, false);
+    }
+  },
+  methods: ['GET','POST','OPTIONS'],
+  credentials: false
+}));
 
-const KNOW = path.join(__dirname, "knowledge.json");
-const EMBS = path.join(__dirname, "embeddings.json");
+// --- rate limit (per IP) ---
+const limiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/', limiter);
 
-async function ensureFiles() {
-  try { await fs.access(KNOW); } catch { await fs.writeFile(KNOW, "[]"); }
-  try { await fs.access(EMBS); } catch { await fs.writeFile(EMBS, "[]"); }
-}
-
-function chunk(text, max = 900) {
-  const lines = text.split(/\n+/), out = []; let buf = "";
-  for (const L of lines) {
-    if ((buf + "\n" + L).length > max) {
-      if (buf.trim()) out.push(buf.trim());
-      buf = L;
-    } else buf = buf ? buf + "\n" + L : L;
-  }
-  if (buf.trim()) out.push(buf.trim());
-  return out;
-}
-
-function cosine(a, b) {
-  let dot = 0, na = 0, nb = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i]*b[i];
-    na += a[i]*a[i];
-    nb += b[i]*b[i];
-  }
-  return dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-8);
-}
-
-app.get("/api_health", (_req, res) => res.json({ ok: true }));
-
-app.post("/api_learn", async (req, res) => {
-  try {
-    const text = (req.body?.text || "").trim();
-    if (text.length < 10)
-      return res.status(400).json({ error: "Provide text >= 10 chars" });
-
-    const parts = chunk(text);
-    const emb = await client.embeddings.create({ model: EMBED_MODEL, input: parts });
-    const vecs = emb.data.map(d => d.embedding);
-
-    const know = JSON.parse(await fs.readFile(KNOW, "utf8"));
-    const embs = JSON.parse(await fs.readFile(EMBS, "utf8"));
-    know.push(...parts);
-    embs.push(...vecs);
-
-    await fs.writeFile(KNOW, JSON.stringify(know, null, 2));
-    await fs.writeFile(EMBS, JSON.stringify(embs, null, 2));
-    res.json({ added: parts.length });
-  } catch (e) {
-    res.status(500).json({ error: String(e) });
-  }
+// --- OpenAI client (Responses API) ---
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY, // required
 });
 
-app.post("/api_chat", async (req, res) => {
+// Optional: tweak the default model here
+const MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+
+// --- health check ---
+app.get('/api/health', (_req, res) => {
+  res.json({ ok: true, model: MODEL, time: new Date().toISOString() });
+});
+
+// --- main chat endpoint ---
+// body: { prompt: string, car?: { make, model, year } }
+app.post('/api/chat', async (req, res) => {
   try {
-    const messages = req.body?.messages;
-    if (!Array.isArray(messages))
-      return res.status(400).json({ error: "messages array required" });
-
-    const know = JSON.parse(await fs.readFile(KNOW, "utf8"));
-    const embs = JSON.parse(await fs.readFile(EMBS, "utf8"));
-    let context = [];
-
-    if (know.length && messages.length) {
-      const qText = messages[messages.length - 1].content || "";
-      const qEmb = await client.embeddings.create({ model: EMBED_MODEL, input: qText });
-      const q = qEmb.data[0].embedding;
-      context = embs
-        .map((v, i) => ({ i, s: cosine(v, q) }))
-        .sort((a, b) => b.s - a.s)
-        .slice(0, 5)
-        .map(r => know[r.i]);
+    const { prompt, car } = req.body || {};
+    if (!prompt || typeof prompt !== 'string') {
+      return res.status(400).json({ error: 'Missing "prompt" string.' });
     }
 
-    const system = { role: "system", content: "You are Carspire, a friendly car mentor who gives accurate automotive advice." };
-    const ctx = context.length ? { role: "system", content: "CONTEXT:\n" + context.join("\n---\n") } : null;
-    const msgs = ctx ? [system, ctx, ...messages] : [system, ...messages];
+    // Build system guidance for Carspire
+    const instructions = [
+      'You are Carspire, a friendly automotive AI.',
+      'Be concise, actionable, and safe. If a procedure affects safety, call it out.',
+      'When specs vary by trim/engine/market, say what to check in the owner’s manual.',
+      'If asked for oil/fluids: remind to use the exact viscosity/spec in the manual (e.g., 0W-20 API SP).',
+      'If asked about brakes: mention pad thickness, rotor condition, and that vibration under braking can indicate rotor runout.',
+      'If asked about EVs: mention preconditioning for fast charging and keeping SOC roughly 10–80% for longevity.',
+    ];
+    const carLine = car && (car.make || car.model || car.year)
+      ? `Vehicle context: ${[car.year, car.make, car.model].filter(Boolean).join(' ')}.`
+      : '';
 
-    const r = await client.chat.completions.create({
-      model: CHAT_MODEL,
-      temperature: 0.5,
-      messages: msgs,
+    // Responses API call
+    // Docs: client.responses.create({ model, instructions, input }) → output_text
+    // (Official OpenAI Node SDK sample demonstrates this pattern.)  // :contentReference[oaicite:1]{index=1}
+    const ai = await client.responses.create({
+      model: MODEL,
+      instructions: [instructions.join(' '), carLine].filter(Boolean).join(' '),
+      input: [
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      // temperature: 0.4, // optional tuning
+      // max_output_tokens: 500, // optional limit
     });
-    res.json({ reply: r.choices?.[0]?.message?.content || "Sorry, no reply." });
-  } catch (e) {
-    res.status(500).json({ error: String(e) });
+
+    const reply = ai.output_text ?? 'Sorry, I could not generate a reply.';
+    return res.json({ reply });
+  } catch (err) {
+    // Normalize error
+    console.error('Chat error:', err?.response?.data || err?.message || err);
+    const status = err?.status || err?.response?.status || 500;
+    return res.status(status).json({
+      error: 'AI_REQUEST_FAILED',
+      status,
+      detail: err?.response?.data || err?.message || 'Unknown error'
+    });
   }
 });
 
-(async () => {
-  await ensureFiles();
-  app.listen(PORT, () => console.log(`✅ Carspire API running on http://localhost:${PORT}`));
-})();
+// --- not found ---
+app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
+
+// --- start ---
+app.listen(port, () => {
+  console.log(`Carspire API running on http://localhost:${port}`);
+});
