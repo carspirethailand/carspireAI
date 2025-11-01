@@ -2,28 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Carspire AI</title>
-
-  <!-- ✅ Link to your CSS -->
   <link rel="stylesheet" href="./styles.css" />
-
-  <!-- Optional favicon -->
   <link rel="icon" type="image/png" href="./P.png">
 </head>
 <body>
-  <!-- Background effects -->
+  <!-- Background layers -->
   <canvas id="fx" class="bg-canvas"></canvas>
   <div class="fx-vignette"></div>
   <div class="fx-scan"></div>
 
-  <!-- Top bar -->
-  <header class="topbar">
-    <img src="./P.png" alt="Carspire Logo" class="logo">
-    <h1 class="brand">carspireAI</h1>
-  </header>
+  <!-- HERO: centered logo, no title text -->
+  <section class="hero">
+    <img src="./P.png" alt="Carspire" class="logo-hero" onerror="this.style.display='none'">
+  </section>
 
-  <!-- Chat container -->
+  <!-- Your chat app -->
   <main class="container">
     <div id="chat" class="chat"></div>
 
@@ -32,12 +27,11 @@
       <button id="send" type="submit">Send</button>
     </form>
 
-    <p class="hint">Try: “Recommend 0W-20 oil spec for Corolla 2019”</p>
+    <p class="hint">Tip: try “Estimate 0–100 for 1500 kg, 300 hp” or “Best oil for 2019 Corolla”.</p>
   </main>
 
-  <footer>© 2025 CarspireThailand YouTube Channel. All rights reserved. Fueling passion for automotive excellence.</footer>
+  <footer>© Carspire</footer>
 
-  <!-- ✅ Link to your JavaScript -->
   <script src="./app.js" defer></script>
 </body>
 </html>
