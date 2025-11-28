@@ -1,6 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Car, Loader2 } from 'lucide-react';
 
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import Carspire from './Carspire.js'; // Import your component
+import './index.css'; // Assuming you have a CSS file, or link your Tailwind setup
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <Carspire /> {/* This is where your AI chat component is loaded! */}
+  </React.StrictMode>
+);
+
 export default function Carspire() {
     const [messages, setMessages] = useState([
         {
@@ -159,4 +171,5 @@ User question: ${userMessage}`
             </div>
         </div>
     );
+
 }
